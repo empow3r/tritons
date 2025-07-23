@@ -1,0 +1,9 @@
+# TRITONS Dependencies
+express
+ws
+axios
+dotenv
+uuid
+ioredis
+cors
+node-cron

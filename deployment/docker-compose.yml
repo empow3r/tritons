@@ -1,0 +1,344 @@
+# docker-compose.yml - Complete Agent Swarm Docker Architecture
+version: '3.8'
+
+services:
+  # Master Orchestrator Node
+  agent-swarm-master:
+    build:
+      context: .
+      target: production
+    image: agentswarm/autonomous-network:latest
+    container_name: agent-swarm-master
+    hostname: master-node
+    environment:
+      - NODE_ENV=production
+      - NODE_ROLE=master
+      - NETWORK_PORT=8080
+      - MASTER_NODE=true
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - CLAUDE_API_KEY2=${CLAUDE_API_KEY2}
+      - CLAUDE_API_KEY3=${CLAUDE_API_KEY3}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_KEY2=${OPENAI_API_KEY2}
+      - OPENAI_API_KEY3=${OPENAI_API_KEY3}
+      - DEEPSEEK_API_KEYS=${DEEPSEEK_API_KEYS}
+      - DEEPSEEK_API_KEY2=${DEEPSEEK_API_KEY2}
+      - DEEPSEEK_API_KEY3=${DEEPSEEK_API_KEY3}
+      - DEEPSEEK_API_KEY4=${DEEPSEEK_API_KEY4}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_API_KEY2=${GEMINI_API_KEY2}
+      - KIMI_API_KEY=${KIMI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_API_KEY2=${OPENROUTER_API_KEY2}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - REDIS_URL=redis://redis:6379
+      - POSTGRES_URL=postgresql://postgres:password@postgres:5432/agentswarm
+    ports:
+      - "8080:8080"
+      - "8443:8443"
+      - "9090:9090"
+    volumes:
+      - agent-data:/app/data
+      - agent-logs:/app/logs
+      - agent-config:/app/config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - redis
+      - postgres
+      - minio
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # GPU-Enabled Ollama Node (for high-end hardware)
+  agent-swarm-gpu:
+    build:
+      context: .
+      target: gpu-enabled
+    image: agentswarm/autonomous-network:gpu
+    container_name: agent-swarm-gpu
+    hostname: gpu-node-1
+    environment:
+      - NODE_ENV=production
+      - NODE_ROLE=worker-gpu
+      - MASTER_NODE_HOST=agent-swarm-master
+      - MASTER_NODE_PORT=8080
+      - OLLAMA_HOST=0.0.0.0:11434
+      - CUDA_VISIBLE_DEVICES=all
+    ports:
+      - "8081:8080"
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+      - agent-data:/app/data
+      - agent-logs:/app/logs
+    depends_on:
+      - agent-swarm-master
+    networks:
+      - agent-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Standard Worker Node (CPU-only)
+  agent-swarm-worker:
+    build:
+      context: .
+      target: production
+    image: agentswarm/autonomous-network:latest
+    hostname: worker-node
+    environment:
+      - NODE_ENV=production
+      - NODE_ROLE=worker-cpu
+      - MASTER_NODE_HOST=agent-swarm-master
+      - MASTER_NODE_PORT=8080
+    volumes:
+      - agent-data:/app/data
+      - agent-logs:/app/logs
+    depends_on:
+      - agent-swarm-master
+    networks:
+      - agent-network
+    restart: unless-stopped
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+
+  # Claude Code CLI Integration Service
+  claude-code-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.claude-code
+    image: agentswarm/claude-code-integration:latest
+    container_name: claude-code-service
+    environment:
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - AGENT_SWARM_URL=http://agent-swarm-master:8080
+      - CLAUDE_CONFIG_PATH=/app/claude-config
+    volumes:
+      - claude-config:/app/claude-config
+      - agent-data:/app/data
+    depends_on:
+      - agent-swarm-master
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  # Free LLM Rotation Service
+  llm-rotation-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.llm-rotation
+    image: agentswarm/llm-rotation:latest
+    container_name: llm-rotation-service
+    environment:
+      - DEEPSEEK_API_KEYS=${DEEPSEEK_API_KEYS}
+      - DEEPSEEK_API_KEY2=${DEEPSEEK_API_KEY2}
+      - DEEPSEEK_API_KEY3=${DEEPSEEK_API_KEY3}
+      - DEEPSEEK_API_KEY4=${DEEPSEEK_API_KEY4}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GEMINI_API_KEY2=${GEMINI_API_KEY2}
+      - KIMI_API_KEY=${KIMI_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - OPENROUTER_API_KEY2=${OPENROUTER_API_KEY2}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+      - agent-swarm-master
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  # Redis for caching and state management
+  redis:
+    image: redis:7-alpine
+    container_name: agent-swarm-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-agentswarm123}
+    volumes:
+      - redis-data:/data
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQL for persistent data
+  postgres:
+    image: postgres:15-alpine
+    container_name: agent-swarm-postgres
+    environment:
+      - POSTGRES_DB=agentswarm
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./sql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # MinIO for object storage (models, logs, backups)
+  minio:
+    image: minio/minio:latest
+    container_name: agent-swarm-minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-admin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-agentswarm123}
+    volumes:
+      - minio-data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - agent-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # Prometheus for monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: agent-swarm-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9091:9090"
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: agent-swarm-grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin123}
+      - GF_INSTALL_PLUGINS=grafana-clock-panel,grafana-simple-json-datasource
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: agent-swarm-jaeger
+    environment:
+      - COLLECTOR_ZIPKIN_HOST_PORT=:9411
+    ports:
+      - "16686:16686"
+      - "14268:14268"
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  # NGINX reverse proxy and load balancer
+  nginx:
+    image: nginx:alpine
+    container_name: agent-swarm-nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - agent-swarm-master
+      - grafana
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+  # Auto-scaler service
+  autoscaler:
+    build:
+      context: .
+      dockerfile: Dockerfile.autoscaler
+    image: agentswarm/autoscaler:latest
+    container_name: agent-swarm-autoscaler
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - PROMETHEUS_URL=http://prometheus:9090
+      - SCALE_UP_THRESHOLD=80
+      - SCALE_DOWN_THRESHOLD=20
+      - MAX_REPLICAS=10
+      - MIN_REPLICAS=1
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - prometheus
+      - agent-swarm-master
+    networks:
+      - agent-network
+    restart: unless-stopped
+
+networks:
+  agent-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  agent-data:
+    driver: local
+  agent-logs:
+    driver: local
+  agent-config:
+    driver: local
+  ollama-models:
+    driver: local
+  redis-data:
+    driver: local
+  postgres-data:
+    driver: local
+  minio-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
+    driver: local
+  claude-config:
+    driver: local

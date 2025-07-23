@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Swarm Orchestrator Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr;
+            grid-gap: 20px;
+            padding: 20px;
+            height: 100vh;
+        }
+
+        .panel {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        h2 {
+            color: #4a9eff;
+            margin-bottom: 20px;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Hierarchy Visualization */
+        .hierarchy {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .decision-level {
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+
+        .decision-level.active {
+            border-color: #4a9eff;
+            box-shadow: 0 0 20px rgba(74, 158, 255, 0.3);
+        }
+
+        .level-name {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #4a9eff;
+        }
+
+        .agents {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .agent {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 5px 10px;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .agent.voting {
+            background: #4a9eff;
+            color: #000;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Decision Flow */
+        .decision-flow {
+            margin-top: 20px;
+        }
+
+        .vote {
+            background: #2a2a2a;
+            border-left: 3px solid #4a9eff;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 0 5px 5px 0;
+        }
+
+        .vote.approve { border-left-color: #4ade80; }
+        .vote.modify { border-left-color: #fbbf24; }
+        .vote.reject { border-left-color: #ef4444; }
+        .vote.escalate { border-left-color: #a855f7; }
+
+        /* Resource Monitor */
+        .resource-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .resource-card {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .resource-value {
+            font-size: 36px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .resource-bar {
+            width: 100%;
+            height: 10px;
+            background: #333;
+            border-radius: 5px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .resource-fill {
+            height: 100%;
+            background: #4a9eff;
+            transition: width 0.3s ease;
+        }
+
+        .resource-fill.warning { background: #fbbf24; }
+        .resource-fill.critical { background: #ef4444; }
+
+        /* Context Agents */
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .context-agent {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            position: relative;
+        }
+
+        .context-agent.busy {
+            border-color: #4a9eff;
+        }
+
+        .context-agent.busy::before {
+            content: '';
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 10px;
+            height: 10px;
+            background: #4ade80;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .agent-type {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .agent-id {
+            font-weight: bold;
+            margin: 5px 0;
+        }
+
+        .agent-workload {
+            font-size: 11px;
+            color: #4a9eff;
+        }
+
+        /* Alerts */
+        .alerts {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .alert {
+            background: #2a2a2a;
+            border-left: 3px solid #ef4444;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 0 5px 5px 0;
+        }
+
+        .alert.medium { border-left-color: #fbbf24; }
+        .alert.high { border-left-color: #f97316; }
+        .alert.critical { 
+            border-left-color: #ef4444;
+            animation: flash 2s infinite;
+        }
+
+        @keyframes flash {
+            0%, 100% { background: #2a2a2a; }
+            50% { background: rgba(239, 68, 68, 0.2); }
+        }
+
+        .alert-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .alert-resource {
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .alert-time {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .suggestions {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #444;
+        }
+
+        .suggestion {
+            font-size: 12px;
+            color: #4a9eff;
+            margin-bottom: 5px;
+            padding-left: 15px;
+            position: relative;
+        }
+
+        .suggestion::before {
+            content: '💡';
+            position: absolute;
+            left: 0;
+        }
+
+        /* Task Decomposition View */
+        .task-tree {
+            margin-top: 20px;
+        }
+
+        .task-node {
+            margin-left: 20px;
+            padding: 10px;
+            border-left: 2px solid #444;
+            position: relative;
+        }
+
+        .task-node::before {
+            content: '';
+            position: absolute;
+            left: -7px;
+            top: 20px;
+            width: 12px;
+            height: 12px;
+            background: #4a9eff;
+            border-radius: 50%;
+        }
+
+        .task-node.completed::before {
+            background: #4ade80;
+        }
+
+        .task-node.processing::before {
+            background: #fbbf24;
+            animation: pulse 1s infinite;
+        }
+
+        /* Fortune Teller Special Effects */
+        .fortune-teller {
+            background: linear-gradient(135deg, #6b46c1 0%, #a855f7 100%);
+            border: 2px solid #a855f7;
+            box-shadow: 0 0 30px rgba(168, 85, 247, 0.5);
+            animation: mystical 3s ease-in-out infinite;
+        }
+
+        @keyframes mystical {
+            0%, 100% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.02); filter: brightness(1.2); }
+        }
+
+        .crystal-ball {
+            width: 50px;
+            height: 50px;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.8), rgba(168,85,247,0.6));
+            border-radius: 50%;
+            margin: 10px auto;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4a9eff;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Left Panel: Hierarchical Decision System -->
+        <div class="panel">
+            <h2>🗳️ Hierarchical Decision System</h2>
+            
+            <div class="hierarchy">
+                <div class="decision-level" id="level-operational">
+                    <div class="level-name">Operational Level (Threshold: 60%)</div>
+                    <div class="agents">
+                        <div class="agent">Analyst</div>
+                        <div class="agent">Engineer</div>
+                        <div class="agent">Reviewer</div>
+                    </div>
+                </div>
+
+                <div class="decision-level" id="level-tactical">
+                    <div class="level-name">Tactical Level (Threshold: 80%)</div>
+                    <div class="agents">
+                        <div class="agent">Architect</div>
+                        <div class="agent">Lead</div>
+                        <div class="agent">Manager</div>
+                    </div>
+                </div>
+
+                <div class="decision-level" id="level-strategic">
+                    <div class="level-name">Strategic Level (Threshold: 90%)</div>
+                    <div class="agents">
+                        <div class="agent">Director</div>
+                        <div class="agent">VP</div>
+                        <div class="agent">CTO</div>
+                    </div>
+                </div>
+
+                <div class="decision-level fortune-teller" id="level-critical">
+                    <div class="level-name">Critical Level (Threshold: 95%)</div>
+                    <div class="crystal-ball"></div>
+                    <div class="agents">
+                        <div class="agent">Legal Advisor</div>
+                        <div class="agent">Ethical Committee</div>
+                        <div class="agent">Fortune Teller 🔮</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="decision-flow" id="decision-flow">
+                <h3 style="margin-top: 20px; margin-bottom: 10px;">Recent Decisions</h3>
+                <!-- Votes will appear here -->
+            </div>
+        </div>
+
+        <!-- Center Panel: Context Agents & Tasks -->
+        <div class="panel">
+            <h2>🤖 Context Agent Swarm</h2>
+            
+            <div class="agent-grid" id="agent-grid">
+                <!-- Context agents will be displayed here -->
+            </div>
+
+            <h2 style="margin-top: 30px;">📊 Task Decomposition</h2>
+            <div class="task-tree" id="task-tree">
+                <!-- Task breakdown will appear here -->
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat">
+                    <div class="stat-label">Active Tasks</div>
+                    <div class="stat-value" id="active-tasks">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Contexts/Second</div>
+                    <div class="stat-value" id="contexts-per-second">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Decisions Made</div>
+                    <div class="stat-value" id="decisions-made">0</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-label">Avg Latency</div>
+                    <div class="stat-value" id="avg-latency">0ms</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Resource Monitor & Alerts -->
+        <div class="panel">
+            <h2>📊 Resource Monitor</h2>
+            
+            <div class="resource-grid">
+                <div class="resource-card">
+                    <div class="resource-label">CPU Usage</div>
+                    <div class="resource-value" id="cpu-value">0%</div>
+                    <div class="resource-bar">
+                        <div class="resource-fill" id="cpu-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="resource-card">
+                    <div class="resource-label">Memory</div>
+                    <div class="resource-value" id="memory-value">0%</div>
+                    <div class="resource-bar">
+                        <div class="resource-fill" id="memory-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="resource-card">
+                    <div class="resource-label">Agent Usage</div>
+                    <div class="resource-value" id="agents-value">0%</div>
+                    <div class="resource-bar">
+                        <div class="resource-fill" id="agents-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <div class="resource-card">
+                    <div class="resource-label">Latency</div>
+                    <div class="resource-value" id="latency-value">0ms</div>
+                    <div class="resource-bar">
+                        <div class="resource-fill" id="latency-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <h2 style="margin-top: 30px;">🚨 System Alerts</h2>
+            <div class="alerts" id="alerts">
+                <!-- Alerts will appear here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock data generation for demo
+        const agentTypes = ['assembler', 'analyzer', 'reviewer', 'optimizer', 'compressor', 'cache-manager', 'predictor'];
+        const agentCounts = { assembler: 3, analyzer: 2, reviewer: 2, optimizer: 2, compressor: 4, 'cache-manager': 1, predictor: 2 };
+        
+        // Initialize context agents display
+        function initializeAgents() {
+            const grid = document.getElementById('agent-grid');
+            grid.innerHTML = '';
+            
+            for (const [type, count] of Object.entries(agentCounts)) {
+                for (let i = 0; i < count; i++) {
+                    const agent = document.createElement('div');
+                    agent.className = 'context-agent';
+                    agent.id = `agent-${type}-${i}`;
+                    agent.innerHTML = `
+                        <div class="agent-type">${type}</div>
+                        <div class="agent-id">${type}-${i}</div>
+                        <div class="agent-workload">Idle</div>
+                    `;
+                    grid.appendChild(agent);
+                }
+            }
+        }
+
+        // Simulate decision making
+        function simulateDecision() {
+            const criticality = Math.random();
+            const levels = [];
+            
+            if (criticality >= 0.6) levels.push('operational');
+            if (criticality >= 0.8) levels.push('tactical');
+            if (criticality >= 0.9) levels.push('strategic');
+            if (criticality >= 0.95) levels.push('critical');
+            
+            // Animate voting levels
+            levels.forEach((level, index) => {
+                setTimeout(() => {
+                    const levelEl = document.getElementById(`level-${level}`);
+                    levelEl.classList.add('active');
+                    
+                    // Animate agents voting
+                    const agents = levelEl.querySelectorAll('.agent');
+                    agents.forEach((agent, i) => {
+                        setTimeout(() => {
+                            agent.classList.add('voting');
+                            setTimeout(() => agent.classList.remove('voting'), 1000);
+                        }, i * 200);
+                    });
+                    
+                    setTimeout(() => levelEl.classList.remove('active'), 2000);
+                }, index * 1000);
+            });
+            
+            // Add decision to flow
+            setTimeout(() => {
+                const decisions = ['approve', 'modify', 'reject', 'escalate'];
+                const decision = decisions[Math.floor(Math.random() * decisions.length)];
+                addDecisionToFlow(decision, criticality, levels[levels.length - 1] || 'operational');
+            }, levels.length * 1000);
+        }
+
+        function addDecisionToFlow(decision, criticality, level) {
+            const flow = document.getElementById('decision-flow');
+            const vote = document.createElement('div');
+            vote.className = `vote ${decision}`;
+            vote.innerHTML = `
+                <strong>${decision.toUpperCase()}</strong> - ${level} level (${(criticality * 100).toFixed(0)}% criticality)
+                <div style="font-size: 12px; color: #888; margin-top: 5px;">
+                    ${new Date().toLocaleTimeString()}
+                </div>
+            `;
+            
+            flow.insertBefore(vote, flow.children[1]);
+            
+            // Keep only last 5 decisions
+            while (flow.children.length > 6) {
+                flow.removeChild(flow.lastChild);
+            }
+            
+            // Update counter
+            const counter = document.getElementById('decisions-made');
+            counter.textContent = parseInt(counter.textContent) + 1;
+        }
+
+        // Simulate agent activity
+        function simulateAgentActivity() {
+            const agents = document.querySelectorAll('.context-agent');
+            const randomAgent = agents[Math.floor(Math.random() * agents.length)];
+            
+            randomAgent.classList.add('busy');
+            randomAgent.querySelector('.agent-workload').textContent = 'Processing...';
+            
+            setTimeout(() => {
+                randomAgent.classList.remove('busy');
+                randomAgent.querySelector('.agent-workload').textContent = 'Idle';
+            }, Math.random() * 3000 + 1000);
+        }
+
+        // Update resource monitors
+        function updateResources() {
+            const resources = {
+                cpu: Math.random() * 100,
+                memory: Math.random() * 100,
+                agents: Math.random() * 100,
+                latency: Math.random() * 2000
+            };
+            
+            // Update CPU
+            document.getElementById('cpu-value').textContent = resources.cpu.toFixed(0) + '%';
+            const cpuBar = document.getElementById('cpu-bar');
+            cpuBar.style.width = resources.cpu + '%';
+            cpuBar.className = 'resource-fill' + (resources.cpu > 80 ? ' critical' : resources.cpu > 60 ? ' warning' : '');
+            
+            // Update Memory
+            document.getElementById('memory-value').textContent = resources.memory.toFixed(0) + '%';
+            const memBar = document.getElementById('memory-bar');
+            memBar.style.width = resources.memory + '%';
+            memBar.className = 'resource-fill' + (resources.memory > 85 ? ' critical' : resources.memory > 70 ? ' warning' : '');
+            
+            // Update Agents
+            document.getElementById('agents-value').textContent = resources.agents.toFixed(0) + '%';
+            const agentsBar = document.getElementById('agents-bar');
+            agentsBar.style.width = resources.agents + '%';
+            agentsBar.className = 'resource-fill' + (resources.agents > 90 ? ' critical' : resources.agents > 75 ? ' warning' : '');
+            
+            // Update Latency
+            document.getElementById('latency-value').textContent = resources.latency.toFixed(0) + 'ms';
+            const latencyBar = document.getElementById('latency-bar');
+            const latencyPercent = Math.min((resources.latency / 2000) * 100, 100);
+            latencyBar.style.width = latencyPercent + '%';
+            latencyBar.className = 'resource-fill' + (resources.latency > 1000 ? ' critical' : resources.latency > 500 ? ' warning' : '');
+            
+            // Generate alerts for high resources
+            if (resources.cpu > 80 || resources.memory > 85 || resources.agents > 90 || resources.latency > 1000) {
+                generateAlert(resources);
+            }
+        }
+
+        function generateAlert(resources) {
+            const alerts = document.getElementById('alerts');
+            
+            let alertResource = '';
+            let alertValue = 0;
+            let severity = 'medium';
+            
+            if (resources.cpu > 80) {
+                alertResource = 'CPU';
+                alertValue = resources.cpu;
+                severity = resources.cpu > 90 ? 'critical' : 'high';
+            } else if (resources.memory > 85) {
+                alertResource = 'Memory';
+                alertValue = resources.memory;
+                severity = resources.memory > 95 ? 'critical' : 'high';
+            } else if (resources.agents > 90) {
+                alertResource = 'Agents';
+                alertValue = resources.agents;
+                severity = 'high';
+            } else if (resources.latency > 1000) {
+                alertResource = 'Latency';
+                alertValue = resources.latency;
+                severity = resources.latency > 1500 ? 'critical' : 'high';
+            }
+            
+            if (alertResource && Math.random() > 0.7) { // Don't generate too many alerts
+                const alert = document.createElement('div');
+                alert.className = `alert ${severity}`;
+                alert.innerHTML = `
+                    <div class="alert-header">
+                        <span class="alert-resource">${alertResource}</span>
+                        <span class="alert-time">${new Date().toLocaleTimeString()}</span>
+                    </div>
+                    <div>Current: ${alertValue.toFixed(0)}${alertResource === 'Latency' ? 'ms' : '%'}</div>
+                    <div class="suggestions">
+                        ${getSuggestions(alertResource)}
+                    </div>
+                `;
+                
+                alerts.insertBefore(alert, alerts.firstChild);
+                
+                // Keep only last 5 alerts
+                while (alerts.children.length > 5) {
+                    alerts.removeChild(alerts.lastChild);
+                }
+            }
+        }
+
+        function getSuggestions(resource) {
+            const suggestions = {
+                'CPU': [
+                    'Scale out agents to multiple processes',
+                    'Optimize context compression algorithms',
+                    'Reduce parallel processing limit'
+                ],
+                'Memory': [
+                    'Clear context cache',
+                    'Reduce context retention period',
+                    'Implement more aggressive compression'
+                ],
+                'Agents': [
+                    'Spawn additional agent instances',
+                    'Implement agent pooling',
+                    'Queue low-priority tasks'
+                ],
+                'Latency': [
+                    'Enable context pre-warming',
+                    'Increase cache hit rate',
+                    'Optimize database queries'
+                ]
+            };
+            
+            const resourceSuggestions = suggestions[resource] || ['Review system configuration'];
+            return resourceSuggestions.slice(0, 2).map(s => `<div class="suggestion">${s}</div>`).join('');
+        }
+
+        // Simulate task decomposition
+        function simulateTaskDecomposition() {
+            const tree = document.getElementById('task-tree');
+            tree.innerHTML = '';
+            
+            const mainTask = document.createElement('div');
+            mainTask.className = 'task-node processing';
+            mainTask.innerHTML = '<strong>Build Payment API</strong> (Critical)';
+            tree.appendChild(mainTask);
+            
+            const subtasks = [
+                'Analyze security requirements',
+                'Design payment flow',
+                'Implement encryption',
+                'Add compliance checks',
+                'Test thoroughly'
+            ];
+            
+            subtasks.forEach((task, index) => {
+                const node = document.createElement('div');
+                node.className = 'task-node' + (index < 2 ? ' completed' : index === 2 ? ' processing' : '');
+                node.innerHTML = task;
+                tree.appendChild(node);
+            });
+        }
+
+        // Update stats
+        function updateStats() {
+            document.getElementById('active-tasks').textContent = Math.floor(Math.random() * 20) + 5;
+            document.getElementById('contexts-per-second').textContent = (Math.random() * 50 + 10).toFixed(0);
+            document.getElementById('avg-latency').textContent = (Math.random() * 200 + 50).toFixed(0) + 'ms';
+        }
+
+        // Initialize and start simulations
+        initializeAgents();
+        simulateTaskDecomposition();
+        
+        // Start periodic updates
+        setInterval(simulateAgentActivity, 500);
+        setInterval(updateResources, 1000);
+        setInterval(simulateDecision, 5000);
+        setInterval(updateStats, 2000);
+        
+        // Initial updates
+        updateResources();
+        updateStats();
+    </script>
+</body>
+</html>

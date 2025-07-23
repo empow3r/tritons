@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  # Main Tritons AI Swarm System
+  tritons:
+    build: .
+    container_name: tritons-ai-swarm
+    ports:
+      - "8080:8080"  # Main dashboard
+      - "8082:8082"  # Key manager
+    environment:
+      - NODE_ENV=production
+      - NO_SIMULATIONS=true
+      - OLLAMA_HOST=http://10.0.0.40:11434
+      - LOG_LEVEL=info
+    volumes:
+      - ~/.tritons:/app/.tritons
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - tritons-network
+
+  # Redis for task coordination (essential)
+  redis:
+    image: redis:7-alpine
+    container_name: tritons-redis
+    ports:
+      - "6380:6379"  # Changed to 6380 to avoid conflict with local Redis
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    networks:
+      - tritons-network
+
+  # Basic monitoring with Portainer
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: tritons-portainer
+    ports:
+      - "9000:9000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer-data:/data
+    restart: unless-stopped
+    networks:
+      - tritons-network
+
+volumes:
+  redis-data:
+  portainer-data:
+
+networks:
+  tritons-network:
+    driver: bridge

@@ -1,0 +1,17 @@
+{
+  "name": "tritons-agent-swarm",
+  "version": "1.0.0",
+  "description": "TRITONS - Autonomous AI Agent Swarm Platform",
+  "main": "core/multi-llm-hierarchical-system.js",
+  "scripts": {
+    "start": "node core/multi-llm-hierarchical-system.js",
+    "dev": "nodemon core/multi-llm-hierarchical-system.js",
+    "deploy": "./deployment/deploy-enhanced-swarm.sh",
+    "monitor": "node monitoring/live-task-monitor.js",
+    "docker:build": "docker build -t tritons-ai-swarm .",
+    "docker:run": "docker run -p 8080:8080 -p 8082:8082 tritons-ai-swarm"
+  },
+  "keywords": ["ai", "agents", "swarm", "autonomous", "enterprise"],
+  "author": "TRITONS Team",
+  "license": "MIT"
+}

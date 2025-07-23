@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRITONS Task Monitor Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: #0a0a0a;
+            color: #e0e0e0;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+        
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            color: #fff;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        .card {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border: 1px solid #333;
+        }
+        
+        .card h2 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            color: #4a9eff;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            padding: 10px;
+            background: #0f0f0f;
+            border-radius: 4px;
+        }
+        
+        .metric-label {
+            color: #888;
+        }
+        
+        .metric-value {
+            font-weight: bold;
+            color: #fff;
+        }
+        
+        .task-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .task-item {
+            background: #0f0f0f;
+            margin: 8px 0;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 3px solid #333;
+            transition: all 0.3s ease;
+        }
+        
+        .task-item:hover {
+            background: #1a1a1a;
+            border-left-color: #4a9eff;
+        }
+        
+        .task-item.critical { border-left-color: #ff4444; }
+        .task-item.high { border-left-color: #ff8844; }
+        .task-item.medium { border-left-color: #ffcc44; }
+        .task-item.low { border-left-color: #44ff44; }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .task-id {
+            font-family: monospace;
+            color: #4a9eff;
+            font-size: 12px;
+        }
+        
+        .task-status {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 3px;
+            background: #333;
+        }
+        
+        .status-queued { background: #666; }
+        .status-assigned { background: #4a9eff; }
+        .status-in_progress { background: #ff8844; }
+        .status-completed { background: #44ff44; color: #000; }
+        .status-failed { background: #ff4444; }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #0f0f0f;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4a9eff 0%, #44ff44 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #000;
+            font-weight: bold;
+        }
+        
+        .agent-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+        }
+        
+        .agent-card {
+            background: #0f0f0f;
+            padding: 10px;
+            border-radius: 4px;
+            text-align: center;
+            border: 1px solid #333;
+        }
+        
+        .agent-card.active {
+            border-color: #44ff44;
+            background: #0f1f0f;
+        }
+        
+        .agent-name {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        
+        .agent-load {
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .chart-container {
+            height: 200px;
+            position: relative;
+        }
+        
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #4a9eff;
+            color: #fff;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .refresh-btn:hover {
+            background: #3a8eef;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.4);
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .updating {
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 TRITONS Task Monitor Dashboard</h1>
+    </div>
+    
+    <div class="container">
+        <!-- System Overview -->
+        <div class="card">
+            <h2>System Overview</h2>
+            <div class="metric">
+                <span class="metric-label">Total Tasks</span>
+                <span class="metric-value" id="total-tasks">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Active Agents</span>
+                <span class="metric-value" id="active-agents">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Queue Depth</span>
+                <span class="metric-value" id="queue-depth">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Success Rate</span>
+                <span class="metric-value" id="success-rate">0%</span>
+            </div>
+        </div>
+        
+        <!-- Task Progress -->
+        <div class="card">
+            <h2>Task Progress</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" id="overall-progress" style="width: 0%">0%</div>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Completed</span>
+                <span class="metric-value" id="completed-count">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">In Progress</span>
+                <span class="metric-value" id="in-progress-count">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Queued</span>
+                <span class="metric-value" id="queued-count">0</span>
+            </div>
+        </div>
+        
+        <!-- Active Tasks -->
+        <div class="card" style="grid-column: span 2;">
+            <h2>Active Tasks</h2>
+            <div class="task-list" id="active-tasks">
+                <!-- Tasks will be populated here -->
+            </div>
+        </div>
+        
+        <!-- Agent Status -->
+        <div class="card">
+            <h2>Agent Status</h2>
+            <div class="agent-grid" id="agent-grid">
+                <!-- Agents will be populated here -->
+            </div>
+        </div>
+        
+        <!-- Performance Metrics -->
+        <div class="card">
+            <h2>Performance Metrics</h2>
+            <div class="metric">
+                <span class="metric-label">Avg Task Time</span>
+                <span class="metric-value" id="avg-task-time">0m</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Tasks/Hour</span>
+                <span class="metric-value" id="tasks-per-hour">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">API Calls</span>
+                <span class="metric-value" id="api-calls">0</span>
+            </div>
+            <div class="metric">
+                <span class="metric-label">Total Cost</span>
+                <span class="metric-value" id="total-cost">$0.00</span>
+            </div>
+        </div>
+    </div>
+    
+    <button class="refresh-btn" onclick="refreshData()">🔄 Refresh</button>
+    
+    <script>
+        // Mock data for demonstration
+        const mockData = {
+            tasks: [
+                {
+                    id: 'PHASE1_001',
+                    title: 'Complete Redis clustering',
+                    status: 'in_progress',
+                    priority: 'critical',
+                    progress: 65,
+                    agent: 'agent_002'
+                },
+                {
+                    id: 'PHASE1_002',
+                    title: 'Implement circuit breakers',
+                    status: 'assigned',
+                    priority: 'critical',
+                    progress: 0,
+                    agent: 'agent_001'
+                },
+                {
+                    id: 'PHASE1_003',
+                    title: 'Add error recovery',
+                    status: 'queued',
+                    priority: 'high',
+                    progress: 0,
+                    agent: null
+                },
+                {
+                    id: 'PHASE1_004',
+                    title: 'Deploy OpenTelemetry',
+                    status: 'completed',
+                    priority: 'medium',
+                    progress: 100,
+                    agent: 'agent_003'
+                }
+            ],
+            agents: [
+                { id: 'agent_001', name: 'Backend-01', load: 0.7, status: 'active' },
+                { id: 'agent_002', name: 'DevOps-01', load: 0.9, status: 'active' },
+                { id: 'agent_003', name: 'QA-01', load: 0.3, status: 'active' },
+                { id: 'agent_004', name: 'ML-01', load: 0.0, status: 'idle' }
+            ],
+            metrics: {
+                totalTasks: 15,
+                completedTasks: 5,
+                avgTaskTime: 45,
+                tasksPerHour: 2.5,
+                apiCalls: 1247,
+                totalCost: 12.35
+            }
+        };
+        
+        function updateDashboard(data) {
+            // Update overview
+            document.getElementById('total-tasks').textContent = data.metrics.totalTasks;
+            document.getElementById('active-agents').textContent = 
+                data.agents.filter(a => a.status === 'active').length;
+            document.getElementById('queue-depth').textContent = 
+                data.tasks.filter(t => t.status === 'queued').length;
+            
+            const successRate = (data.metrics.completedTasks / data.metrics.totalTasks * 100).toFixed(1);
+            document.getElementById('success-rate').textContent = successRate + '%';
+            
+            // Update progress
+            const progress = (data.metrics.completedTasks / data.metrics.totalTasks * 100).toFixed(0);
+            const progressBar = document.getElementById('overall-progress');
+            progressBar.style.width = progress + '%';
+            progressBar.textContent = progress + '%';
+            
+            // Update counts
+            document.getElementById('completed-count').textContent = 
+                data.tasks.filter(t => t.status === 'completed').length;
+            document.getElementById('in-progress-count').textContent = 
+                data.tasks.filter(t => t.status === 'in_progress').length;
+            document.getElementById('queued-count').textContent = 
+                data.tasks.filter(t => t.status === 'queued').length;
+            
+            // Update task list
+            const taskList = document.getElementById('active-tasks');
+            taskList.innerHTML = data.tasks.map(task => `
+                <div class="task-item ${task.priority}">
+                    <div class="task-header">
+                        <span class="task-id">${task.id}</span>
+                        <span class="task-status status-${task.status}">${task.status}</span>
+                    </div>
+                    <div>${task.title}</div>
+                    ${task.status === 'in_progress' ? `
+                        <div class="progress-bar" style="height: 10px; margin-top: 5px;">
+                            <div class="progress-fill" style="width: ${task.progress}%; font-size: 10px;">
+                                ${task.progress}%
+                            </div>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+            
+            // Update agents
+            const agentGrid = document.getElementById('agent-grid');
+            agentGrid.innerHTML = data.agents.map(agent => `
+                <div class="agent-card ${agent.status === 'active' ? 'active' : ''}">
+                    <div class="agent-name">${agent.name}</div>
+                    <div class="agent-load" style="color: ${getLoadColor(agent.load)}">
+                        ${(agent.load * 100).toFixed(0)}%
+                    </div>
+                </div>
+            `).join('');
+            
+            // Update metrics
+            document.getElementById('avg-task-time').textContent = data.metrics.avgTaskTime + 'm';
+            document.getElementById('tasks-per-hour').textContent = data.metrics.tasksPerHour;
+            document.getElementById('api-calls').textContent = data.metrics.apiCalls;
+            document.getElementById('total-cost').textContent = '$' + data.metrics.totalCost.toFixed(2);
+        }
+        
+        function getLoadColor(load) {
+            if (load < 0.5) return '#44ff44';
+            if (load < 0.8) return '#ffcc44';
+            return '#ff4444';
+        }
+        
+        async function fetchData() {
+            // In production, this would fetch from the actual API
+            try {
+                const response = await fetch('http://localhost:8080/api/dashboard/status');
+                return await response.json();
+            } catch (err) {
+                // Fallback to mock data for demo
+                return mockData;
+            }
+        }
+        
+        async function refreshData() {
+            const btn = document.querySelector('.refresh-btn');
+            btn.classList.add('updating');
+            
+            const data = await fetchData();
+            updateDashboard(data);
+            
+            setTimeout(() => {
+                btn.classList.remove('updating');
+            }, 500);
+        }
+        
+        // Initial load
+        refreshData();
+        
+        // Auto-refresh every 5 seconds
+        setInterval(refreshData, 5000);
+    </script>
+</body>
+</html>

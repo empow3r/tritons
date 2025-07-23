@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRITONS Interactive Chat Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .chat-container {
+            display: grid;
+            grid-template-columns: 280px 1fr 320px;
+            height: 100vh;
+        }
+
+        /* Agent Sidebar */
+        .agents-sidebar {
+            background: #1a1a2e;
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sidebar-header {
+            padding: 20px;
+            border-bottom: 1px solid #333;
+            text-align: center;
+        }
+
+        .sidebar-header h2 {
+            color: #4a9eff;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .agent-list {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .agent-card {
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .agent-card:hover {
+            background: #1a1a1a;
+            border-color: #4a9eff;
+        }
+
+        .agent-card.active {
+            background: #0f1f2e;
+            border-color: #4a9eff;
+            box-shadow: 0 0 10px rgba(74, 158, 255, 0.3);
+        }
+
+        .agent-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            margin-bottom: 8px;
+        }
+
+        .agent-avatar.advisor { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .agent-avatar.strategizer { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); }
+        .agent-avatar.task-manager { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .agent-avatar.analyst { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+        .agent-avatar.optimizer { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+        .agent-avatar.coordinator { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); }
+
+        .agent-name {
+            font-weight: bold;
+            font-size: 14px;
+            color: #4a9eff;
+            margin-bottom: 4px;
+        }
+
+        .agent-role {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 6px;
+        }
+
+        .agent-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .status-dot.online { background: #44ff44; }
+        .status-dot.busy { background: #ff8844; }
+        .status-dot.offline { background: #666; }
+
+        /* Chat Area */
+        .chat-area {
+            display: flex;
+            flex-direction: column;
+            background: #111;
+        }
+
+        .chat-header {
+            background: #1a1a2e;
+            padding: 15px 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .current-agent {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .current-agent h3 {
+            color: #4a9eff;
+            font-size: 16px;
+        }
+
+        .current-agent span {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .chat-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            background: #4a9eff;
+            color: #fff;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #3a8eef;
+            transform: translateY(-1px);
+        }
+
+        .btn.secondary {
+            background: #333;
+        }
+
+        .btn.secondary:hover {
+            background: #444;
+        }
+
+        .messages-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            display: flex;
+            gap: 12px;
+            max-width: 80%;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            flex-direction: row-reverse;
+        }
+
+        .message-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .message-avatar.user {
+            background: #333;
+        }
+
+        .message-content {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 12px 16px;
+            flex: 1;
+        }
+
+        .message.user .message-content {
+            background: #0f1f2e;
+            border-color: #4a9eff;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            font-size: 12px;
+        }
+
+        .message-sender {
+            color: #4a9eff;
+            font-weight: bold;
+        }
+
+        .message-time {
+            color: #666;
+        }
+
+        .message-text {
+            line-height: 1.4;
+            font-size: 14px;
+        }
+
+        .message-actions {
+            margin-top: 8px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .action-btn {
+            background: none;
+            border: 1px solid #333;
+            color: #888;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.3s ease;
+        }
+
+        .action-btn:hover {
+            border-color: #4a9eff;
+            color: #4a9eff;
+        }
+
+        .input-area {
+            background: #1a1a1a;
+            border-top: 1px solid #333;
+            padding: 20px;
+        }
+
+        .input-container {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .message-input {
+            flex: 1;
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 20px;
+            padding: 12px 16px;
+            color: #e0e0e0;
+            font-size: 14px;
+            resize: none;
+            max-height: 120px;
+            font-family: inherit;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: #4a9eff;
+            box-shadow: 0 0 0 2px rgba(74, 158, 255, 0.2);
+        }
+
+        .send-btn {
+            background: #4a9eff;
+            border: none;
+            color: #fff;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            background: #3a8eef;
+            transform: scale(1.1);
+        }
+
+        .send-btn:disabled {
+            background: #333;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Task Panel */
+        .task-panel {
+            background: #1a1a2e;
+            border-left: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 20px;
+            border-bottom: 1px solid #333;
+        }
+
+        .panel-header h3 {
+            color: #4a9eff;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+
+        .task-tabs {
+            display: flex;
+            background: #0f0f0f;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .task-tab {
+            flex: 1;
+            padding: 8px 12px;
+            text-align: center;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .task-tab.active {
+            background: #4a9eff;
+            color: #fff;
+        }
+
+        .panel-content {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .quick-tasks {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .quick-task {
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+        }
+
+        .quick-task:hover {
+            background: #1a1a1a;
+            border-color: #4a9eff;
+        }
+
+        .task-form {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .form-label {
+            color: #4a9eff;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .form-input {
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 8px;
+            color: #e0e0e0;
+            font-size: 12px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #4a9eff;
+        }
+
+        .form-textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        .form-select {
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 8px;
+            color: #e0e0e0;
+            font-size: 12px;
+        }
+
+        .suggestions {
+            background: #0f1f0f;
+            border: 1px solid #44ff44;
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 10px;
+        }
+
+        .suggestion-header {
+            color: #44ff44;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .suggestion-item {
+            background: #0a0a0a;
+            border-radius: 4px;
+            padding: 8px;
+            margin-bottom: 6px;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .suggestion-item:hover {
+            background: #1a1a1a;
+        }
+
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: #1a1a1a;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+
+        .typing-dots {
+            display: flex;
+            gap: 4px;
+        }
+
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #666;
+            border-radius: 50%;
+            animation: typing 1.4s infinite;
+        }
+
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes typing {
+            0%, 60%, 100% { opacity: 0.3; }
+            30% { opacity: 1; }
+        }
+
+        .collaboration-panel {
+            margin-top: 15px;
+            background: #0f0f1f;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 12px;
+        }
+
+        .collab-header {
+            color: #4a9eff;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .collab-agents {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .collab-agent {
+            background: #333;
+            border-radius: 12px;
+            padding: 4px 8px;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .collab-agent:hover {
+            background: #4a9eff;
+        }
+
+        .collab-agent.active {
+            background: #44ff44;
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <!-- Agents Sidebar -->
+        <div class="agents-sidebar">
+            <div class="sidebar-header">
+                <h2>🤖 TRITONS Agents</h2>
+                <div style="font-size: 12px; color: #888;">Interactive Chat System</div>
+            </div>
+            
+            <div class="agent-list" id="agent-list">
+                <!-- Agents will be populated here -->
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-area">
+            <div class="chat-header">
+                <div class="current-agent">
+                    <div class="agent-avatar advisor" id="current-avatar">🎯</div>
+                    <div>
+                        <h3 id="current-agent-name">Strategic Advisor</h3>
+                        <span id="current-agent-role">Strategy & Planning Specialist</span>
+                    </div>
+                </div>
+                
+                <div class="chat-actions">
+                    <button class="btn secondary" onclick="clearChat()">Clear Chat</button>
+                    <button class="btn" onclick="exportChat()">Export</button>
+                    <button class="btn" onclick="requestCollaboration()">Collaborate</button>
+                </div>
+            </div>
+
+            <div class="messages-container" id="messages-container">
+                <div class="message">
+                    <div class="message-avatar advisor">🎯</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-sender">Strategic Advisor</span>
+                            <span class="message-time">Just now</span>
+                        </div>
+                        <div class="message-text">
+                            Welcome! I'm your Strategic Advisor. I can help you:
+                            <br>• Plan and strategize complex projects
+                            <br>• Submit and manage tasks to TRITONS agents
+                            <br>• Collaborate with other specialized agents
+                            <br>• Optimize workflows and processes
+                            <br><br>What would you like to work on today?
+                        </div>
+                    </div>
+                </div>
+
+                <div class="typing-indicator" id="typing-indicator">
+                    <div class="agent-avatar advisor">🎯</div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 12px; color: #888;">Agent is thinking</span>
+                        <div class="typing-dots">
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                            <div class="typing-dot"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-container">
+                    <textarea 
+                        class="message-input" 
+                        id="message-input" 
+                        placeholder="Ask for advice, submit a task, or request collaboration with other agents..."
+                        rows="1"
+                    ></textarea>
+                    <button class="send-btn" id="send-btn" onclick="sendMessage()">➤</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task Panel -->
+        <div class="task-panel">
+            <div class="panel-header">
+                <h3>🎯 Task Management</h3>
+                <div class="task-tabs">
+                    <button class="task-tab active" onclick="switchTab('quick')">Quick</button>
+                    <button class="task-tab" onclick="switchTab('custom')">Custom</button>
+                    <button class="task-tab" onclick="switchTab('collab')">Collab</button>
+                </div>
+            </div>
+
+            <div class="panel-content">
+                <!-- Quick Tasks Tab -->
+                <div id="quick-tab" class="tab-content">
+                    <div class="quick-tasks">
+                        <div class="quick-task" onclick="quickTask('analyze_performance')">
+                            📊 Analyze System Performance
+                        </div>
+                        <div class="quick-task" onclick="quickTask('optimize_costs')">
+                            💰 Optimize LLM Costs
+                        </div>
+                        <div class="quick-task" onclick="quickTask('improve_workflow')">
+                            ⚡ Improve Workflow Efficiency
+                        </div>
+                        <div class="quick-task" onclick="quickTask('security_audit')">
+                            🔒 Security Audit & Recommendations
+                        </div>
+                        <div class="quick-task" onclick="quickTask('scale_infrastructure')">
+                            🚀 Scale Infrastructure Planning
+                        </div>
+                        <div class="quick-task" onclick="quickTask('agent_collaboration')">
+                            🤝 Multi-Agent Collaboration Task
+                        </div>
+                    </div>
+
+                    <div class="suggestions" id="suggestions-panel" style="display: none;">
+                        <div class="suggestion-header">💡 AI Suggestions</div>
+                        <div id="suggestions-list">
+                            <!-- Suggestions will be populated here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Task Tab -->
+                <div id="custom-tab" class="tab-content" style="display: none;">
+                    <form class="task-form" onsubmit="submitCustomTask(event)">
+                        <div class="form-group">
+                            <label class="form-label">Task Title</label>
+                            <input type="text" class="form-input" id="task-title" placeholder="Describe your task">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Department</label>
+                            <select class="form-select" id="task-department">
+                                <option value="STRATEGY">Strategy</option>
+                                <option value="DEVELOPMENT">Development</option>
+                                <option value="ANALYSIS">Analysis</option>
+                                <option value="OPTIMIZATION">Optimization</option>
+                                <option value="COORDINATION">Coordination</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Priority</label>
+                            <select class="form-select" id="task-priority">
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-input form-textarea" id="task-description" placeholder="Detailed task description..."></textarea>
+                        </div>
+                        
+                        <button type="submit" class="btn" style="width: 100%;">Submit Task</button>
+                    </form>
+                </div>
+
+                <!-- Collaboration Tab -->
+                <div id="collab-tab" class="tab-content" style="display: none;">
+                    <div class="collaboration-panel">
+                        <div class="collab-header">🤝 Active Collaborations</div>
+                        <div class="collab-agents" id="active-collaborations">
+                            <div class="collab-agent">Strategizer</div>
+                            <div class="collab-agent active">Optimizer</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <div class="form-label">Request Collaboration</div>
+                        <div class="collab-agents" id="available-agents">
+                            <div class="collab-agent" onclick="toggleAgent('advisor')">Advisor</div>
+                            <div class="collab-agent" onclick="toggleAgent('strategizer')">Strategizer</div>
+                            <div class="collab-agent" onclick="toggleAgent('analyst')">Analyst</div>
+                            <div class="collab-agent" onclick="toggleAgent('optimizer')">Optimizer</div>
+                        </div>
+                    </div>
+
+                    <button class="btn" style="width: 100%; margin-top: 15px;" onclick="startCollaboration()">
+                        Start Multi-Agent Session
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Agent configurations
+        const agents = {
+            advisor: {
+                name: 'Strategic Advisor',
+                role: 'Strategy & Planning Specialist',
+                avatar: '🎯',
+                class: 'advisor',
+                capabilities: ['strategic planning', 'project management', 'decision support'],
+                status: 'online'
+            },
+            strategizer: {
+                name: 'Master Strategizer',
+                role: 'Long-term Strategy Expert',
+                avatar: '🧠',
+                class: 'strategizer',
+                capabilities: ['competitive analysis', 'market strategy', 'innovation planning'],
+                status: 'online'
+            },
+            taskManager: {
+                name: 'Task Manager',
+                role: 'Workflow Optimization',
+                avatar: '📋',
+                class: 'task-manager',
+                capabilities: ['task scheduling', 'resource allocation', 'progress tracking'],
+                status: 'busy'
+            },
+            analyst: {
+                name: 'Data Analyst',
+                role: 'Performance & Analytics',
+                avatar: '📊',
+                class: 'analyst',
+                capabilities: ['data analysis', 'performance metrics', 'reporting'],
+                status: 'online'
+            },
+            optimizer: {
+                name: 'System Optimizer',
+                role: 'Efficiency & Performance',
+                avatar: '⚡',
+                class: 'optimizer',
+                capabilities: ['performance tuning', 'cost optimization', 'system enhancement'],
+                status: 'online'
+            },
+            coordinator: {
+                name: 'Agent Coordinator',
+                role: 'Multi-Agent Orchestration',
+                avatar: '🎭',
+                class: 'coordinator',
+                capabilities: ['agent coordination', 'workflow orchestration', 'collaboration'],
+                status: 'online'
+            }
+        };
+
+        let currentAgent = 'advisor';
+        let collaboratingAgents = [];
+        let messageHistory = [];
+
+        // Initialize the interface
+        function init() {
+            populateAgentList();
+            setupEventListeners();
+            selectAgent('advisor');
+        }
+
+        function populateAgentList() {
+            const container = document.getElementById('agent-list');
+            container.innerHTML = Object.entries(agents).map(([key, agent]) => `
+                <div class="agent-card ${key === currentAgent ? 'active' : ''}" onclick="selectAgent('${key}')">
+                    <div class="agent-avatar ${agent.class}">${agent.avatar}</div>
+                    <div class="agent-name">${agent.name}</div>
+                    <div class="agent-role">${agent.role}</div>
+                    <div class="agent-status">
+                        <div class="status-dot ${agent.status}"></div>
+                        <span>${agent.status}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectAgent(agentKey) {
+            currentAgent = agentKey;
+            const agent = agents[agentKey];
+            
+            // Update UI
+            document.getElementById('current-avatar').className = `agent-avatar ${agent.class}`;
+            document.getElementById('current-avatar').textContent = agent.avatar;
+            document.getElementById('current-agent-name').textContent = agent.name;
+            document.getElementById('current-agent-role').textContent = agent.role;
+            
+            // Update agent list
+            document.querySelectorAll('.agent-card').forEach(card => card.classList.remove('active'));
+            event?.target.closest('.agent-card')?.classList.add('active');
+            
+            // Add agent switch message
+            addMessage('system', `Switched to ${agent.name}. How can I help you today?`);
+        }
+
+        function setupEventListeners() {
+            const input = document.getElementById('message-input');
+            const sendBtn = document.getElementById('send-btn');
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            input.addEventListener('input', () => {
+                adjustTextareaHeight(input);
+                sendBtn.disabled = !input.value.trim();
+            });
+        }
+
+        function adjustTextareaHeight(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.min(textarea.scrollHeight, 120) + 'px';
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('message-input');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            // Add user message
+            addMessage('user', message);
+            input.value = '';
+            adjustTextareaHeight(input);
+            
+            // Show typing indicator
+            showTyping();
+            
+            // Process message and get response
+            setTimeout(async () => {
+                hideTyping();
+                const response = await processMessage(message);
+                addMessage('agent', response);
+            }, 1000 + Math.random() * 2000);
+        }
+
+        function addMessage(sender, content, agentKey = currentAgent) {
+            const container = document.getElementById('messages-container');
+            const agent = agents[agentKey] || agents[currentAgent];
+            const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            if (sender === 'user') {
+                messageDiv.innerHTML = `
+                    <div class="message-avatar user">👤</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-sender">You</span>
+                            <span class="message-time">${timestamp}</span>
+                        </div>
+                        <div class="message-text">${content}</div>
+                    </div>
+                `;
+            } else {
+                messageDiv.innerHTML = `
+                    <div class="message-avatar ${agent.class}">${agent.avatar}</div>
+                    <div class="message-content">
+                        <div class="message-header">
+                            <span class="message-sender">${agent.name}</span>
+                            <span class="message-time">${timestamp}</span>
+                        </div>
+                        <div class="message-text">${content}</div>
+                        ${sender === 'agent' ? `
+                            <div class="message-actions">
+                                <button class="action-btn" onclick="likeMessage(this)">👍</button>
+                                <button class="action-btn" onclick="shareMessage(this)">📤</button>
+                                <button class="action-btn" onclick="followUp(this)">💬</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+            
+            // Store in history
+            messageHistory.push({ sender, content, agent: agentKey, timestamp });
+        }
+
+        async function processMessage(message) {
+            const agent = agents[currentAgent];
+            
+            // Check for task submission intent
+            if (message.toLowerCase().includes('task') || message.toLowerCase().includes('submit')) {
+                return await handleTaskSubmission(message);
+            }
+            
+            // Check for collaboration request
+            if (message.toLowerCase().includes('collaborate') || message.toLowerCase().includes('team up')) {
+                return await handleCollaborationRequest(message);
+            }
+            
+            // Check for strategy request
+            if (message.toLowerCase().includes('strategy') || message.toLowerCase().includes('plan')) {
+                return await handleStrategyRequest(message);
+            }
+            
+            // Default agent response based on type
+            return await getAgentResponse(message, agent);
+        }
+
+        async function handleTaskSubmission(message) {
+            // Simulate task analysis and submission
+            const taskId = 'TASK_' + Date.now();
+            
+            // Submit to TRITONS (simulate)
+            try {
+                const response = await fetch('http://localhost:8080/api/tasks/submit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        id: taskId,
+                        title: message.substring(0, 50) + '...',
+                        description: message,
+                        priority: 'medium',
+                        department: 'STRATEGY',
+                        submittedVia: 'chat'
+                    })
+                });
+                
+                if (response.ok) {
+                    showSuggestions([
+                        'Would you like me to track this task\'s progress?',
+                        'Should I collaborate with other agents on this?',
+                        'Do you need a detailed project plan?'
+                    ]);
+                    
+                    return `✅ Task submitted successfully as ${taskId}! I've analyzed your request and submitted it to the TRITONS system. The task will be assigned to the most suitable agent based on workload and expertise. Would you like me to:
+
+• Monitor the task progress and notify you of updates
+• Collaborate with the Strategizer for detailed planning
+• Connect with the Task Manager for timeline optimization
+
+What would you prefer?`;
+                }
+            } catch (err) {
+                // Handle offline mode
+            }
+            
+            return `I've prepared your task for submission: "${message}". However, I couldn't connect to TRITONS right now. Would you like me to save this as a draft or try a different approach?`;
+        }
+
+        async function handleCollaborationRequest(message) {
+            const suggestedAgents = [];
+            
+            if (message.includes('strategy')) suggestedAgents.push('strategizer');
+            if (message.includes('analyze') || message.includes('data')) suggestedAgents.push('analyst');
+            if (message.includes('optimize') || message.includes('performance')) suggestedAgents.push('optimizer');
+            if (message.includes('coordinate') || message.includes('manage')) suggestedAgents.push('taskManager');
+            
+            collaboratingAgents = [...new Set(suggestedAgents)];
+            
+            const agentNames = collaboratingAgents.map(key => agents[key].name).join(', ');
+            
+            return `🤝 Great idea! I'm setting up a collaboration session with: ${agentNames}. 
+
+Each agent will provide their specialized perspective:
+${collaboratingAgents.map(key => `• ${agents[key].name}: ${agents[key].capabilities.join(', ')}`).join('\n')}
+
+I'll coordinate the discussion and ensure all viewpoints are considered. What specific challenge would you like us to tackle together?`;
+        }
+
+        async function handleStrategyRequest(message) {
+            const strategies = [
+                'Break down the problem into manageable phases',
+                'Identify key stakeholders and success metrics',
+                'Develop contingency plans for potential roadblocks',
+                'Create a timeline with clear milestones',
+                'Establish feedback loops for continuous improvement'
+            ];
+            
+            showSuggestions([
+                'Would you like me to create a detailed project roadmap?',
+                'Should I involve the Task Manager for execution planning?',
+                'Do you need risk assessment and mitigation strategies?'
+            ]);
+            
+            return `🎯 Based on your request, here's my strategic approach:
+
+${strategies.map((strategy, i) => `${i + 1}. ${strategy}`).join('\n')}
+
+I recommend we also:
+• Collaborate with the Data Analyst for baseline metrics
+• Engage the System Optimizer for efficiency improvements
+• Coordinate with the Task Manager for execution details
+
+Would you like me to dive deeper into any of these areas or bring in additional expertise?`;
+        }
+
+        async function getAgentResponse(message, agent) {
+            const responses = {
+                advisor: [
+                    "Let me analyze that strategically...",
+                    "From a planning perspective, I'd recommend...",
+                    "Here's my strategic assessment:"
+                ],
+                strategizer: [
+                    "Looking at the bigger picture...",
+                    "This aligns with our long-term vision by...",
+                    "Strategically speaking, we should consider..."
+                ],
+                analyst: [
+                    "Based on the data patterns I'm seeing...",
+                    "The metrics suggest that...",
+                    "Let me analyze the performance implications..."
+                ],
+                optimizer: [
+                    "I can see several optimization opportunities...",
+                    "From an efficiency standpoint...",
+                    "Here's how we can improve performance..."
+                ]
+            };
+            
+            const agentResponses = responses[currentAgent] || responses.advisor;
+            const randomResponse = agentResponses[Math.floor(Math.random() * agentResponses.length)];
+            
+            return `${randomResponse} ${message}. I'm processing your request and will provide detailed recommendations. Would you like me to collaborate with other agents for a comprehensive solution?`;
+        }
+
+        function showTyping() {
+            document.getElementById('typing-indicator').style.display = 'flex';
+            document.getElementById('messages-container').scrollTop = document.getElementById('messages-container').scrollHeight;
+        }
+
+        function hideTyping() {
+            document.getElementById('typing-indicator').style.display = 'none';
+        }
+
+        function showSuggestions(suggestions) {
+            const panel = document.getElementById('suggestions-panel');
+            const list = document.getElementById('suggestions-list');
+            
+            list.innerHTML = suggestions.map(suggestion => `
+                <div class="suggestion-item" onclick="applySuggestion('${suggestion}')">
+                    ${suggestion}
+                </div>
+            `).join('');
+            
+            panel.style.display = 'block';
+        }
+
+        function applySuggestion(suggestion) {
+            document.getElementById('message-input').value = suggestion;
+            document.getElementById('suggestions-panel').style.display = 'none';
+        }
+
+        // Quick tasks
+        function quickTask(taskType) {
+            const tasks = {
+                analyze_performance: "Please analyze our current system performance and identify bottlenecks. I need recommendations for optimization.",
+                optimize_costs: "Help me optimize our LLM costs. Review current usage patterns and suggest cost-effective alternatives.",
+                improve_workflow: "Analyze our current workflow and suggest improvements for better efficiency and productivity.",
+                security_audit: "Conduct a security audit of our TRITONS system and provide recommendations for hardening.",
+                scale_infrastructure: "Plan infrastructure scaling strategy for handling 10x current load. Include timeline and resource requirements.",
+                agent_collaboration: "Set up a multi-agent collaboration to tackle complex project planning and execution."
+            };
+            
+            const message = tasks[taskType];
+            document.getElementById('message-input').value = message;
+            sendMessage();
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.task-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName + '-tab').style.display = 'block';
+        }
+
+        // Custom task submission
+        function submitCustomTask(event) {
+            event.preventDefault();
+            
+            const title = document.getElementById('task-title').value;
+            const department = document.getElementById('task-department').value;
+            const priority = document.getElementById('task-priority').value;
+            const description = document.getElementById('task-description').value;
+            
+            const taskMessage = `Submit a ${priority} priority task to ${department}: "${title}". Details: ${description}`;
+            
+            // Add to chat
+            addMessage('user', taskMessage);
+            
+            // Clear form
+            document.getElementById('task-title').value = '';
+            document.getElementById('task-description').value = '';
+            
+            // Process the task
+            setTimeout(async () => {
+                const response = await handleTaskSubmission(taskMessage);
+                addMessage('agent', response);
+            }, 1000);
+        }
+
+        // Utility functions
+        function clearChat() {
+            document.getElementById('messages-container').innerHTML = '';
+            messageHistory = [];
+            addMessage('system', `Chat cleared. How can I help you today?`);
+        }
+
+        function exportChat() {
+            const chatData = {
+                timestamp: new Date().toISOString(),
+                agent: agents[currentAgent].name,
+                messages: messageHistory
+            };
+            
+            const blob = new Blob([JSON.stringify(chatData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tritons-chat-${Date.now()}.json`;
+            a.click();
+        }
+
+        function requestCollaboration() {
+            const message = "I'd like to start a multi-agent collaboration session to tackle a complex challenge. Please coordinate with other specialized agents.";
+            document.getElementById('message-input').value = message;
+            sendMessage();
+        }
+
+        function toggleAgent(agentKey) {
+            event.target.classList.toggle('active');
+        }
+
+        function startCollaboration() {
+            const message = "Start a multi-agent collaboration session with the selected agents. I need comprehensive expertise for strategic planning.";
+            addMessage('user', message);
+            
+            setTimeout(() => {
+                addMessage('agent', `🎭 Collaboration session initiated! I'm bringing in the Agent Coordinator to facilitate multi-agent discussion. Each participating agent will contribute their expertise to provide you with comprehensive solutions.`);
+            }, 1000);
+        }
+
+        // Initialize the application
+        init();
+    </script>
+</body>
+</html>

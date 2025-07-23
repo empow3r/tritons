@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TRITONS Enhanced Swarm Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicators {
+            display: flex;
+            gap: 20px;
+        }
+
+        .indicator {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .indicator-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .indicator-dot.green { background: #44ff44; }
+        .indicator-dot.yellow { background: #ffcc44; }
+        .indicator-dot.red { background: #ff4444; }
+
+        /* Main Layout */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 300px 1fr 350px;
+            grid-gap: 20px;
+            padding: 20px;
+            height: calc(100vh - 80px);
+        }
+
+        .panel {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .panel h2 {
+            color: #4a9eff;
+            margin-bottom: 20px;
+            font-size: 18px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Quick Task Form */
+        .quick-task-form {
+            margin-bottom: 25px;
+            padding: 15px;
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+        
+        .task-input {
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 5px;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+        
+        .task-textarea {
+            resize: vertical;
+            min-height: 60px;
+            font-family: inherit;
+        }
+        
+        .submit-btn {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #4a9eff 0%, #0066cc 100%);
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .submit-btn:hover {
+            background: linear-gradient(135deg, #66b3ff 0%, #0080ff 100%);
+            transform: translateY(-1px);
+        }
+        
+        .submit-btn:disabled {
+            background: #333;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .task-result {
+            margin-top: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 12px;
+            display: none;
+        }
+        
+        .task-result.success {
+            background: rgba(68, 255, 68, 0.1);
+            border: 1px solid #44ff44;
+            color: #44ff44;
+        }
+        
+        .task-result.error {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid #ff4444;
+            color: #ff4444;
+        }
+
+        /* Task Queue Panel */
+        .task-queue {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .task-item {
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 3px solid #333;
+        }
+
+        .task-item:hover {
+            background: #1a1a1a;
+            transform: translateX(5px);
+        }
+
+        .task-item.critical { border-left-color: #ff4444; }
+        .task-item.high { border-left-color: #ff8844; }
+        .task-item.medium { border-left-color: #ffcc44; }
+        .task-item.low { border-left-color: #44ff44; }
+
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+
+        .task-id {
+            font-family: monospace;
+            font-size: 12px;
+            color: #4a9eff;
+        }
+
+        .task-priority {
+            font-size: 11px;
+            padding: 2px 6px;
+            border-radius: 3px;
+            background: #333;
+        }
+
+        .task-title {
+            font-size: 14px;
+            margin-bottom: 5px;
+        }
+
+        .task-meta {
+            font-size: 12px;
+            color: #888;
+        }
+
+        /* Central Visualization */
+        #dependency-graph {
+            width: 100%;
+            height: 100%;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+
+        /* Agents Panel */
+        .agents-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 10px;
+        }
+
+        .agent-card {
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .agent-card.active {
+            border-color: #44ff44;
+            background: #0f1f0f;
+            box-shadow: 0 0 10px rgba(68, 255, 68, 0.3);
+        }
+
+        .agent-card.busy {
+            border-color: #ff8844;
+            background: #1f0f0f;
+        }
+
+        .agent-name {
+            font-size: 12px;
+            color: #4a9eff;
+            margin-bottom: 5px;
+        }
+
+        .agent-type {
+            font-size: 11px;
+            color: #888;
+            margin-bottom: 10px;
+        }
+
+        .agent-load-bar {
+            height: 4px;
+            background: #333;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 5px;
+        }
+
+        .agent-load-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #44ff44 0%, #ff8844 50%, #ff4444 100%);
+            transition: width 0.3s ease;
+        }
+
+        .agent-stats {
+            display: flex;
+            justify-content: space-around;
+            font-size: 11px;
+            color: #888;
+        }
+
+        /* Metrics */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .metric-card {
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4a9eff;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #888;
+        }
+
+        /* Task Progress */
+        .progress-section {
+            margin-bottom: 20px;
+        }
+
+        .overall-progress {
+            height: 30px;
+            background: #0f0f0f;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4a9eff 0%, #44ff44 100%);
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            color: #000;
+        }
+
+        /* Leaderboard */
+        .leaderboard {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #0f0f0f;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .leaderboard-rank {
+            font-weight: bold;
+            color: #4a9eff;
+            margin-right: 10px;
+        }
+
+        .leaderboard-score {
+            color: #44ff44;
+            font-weight: bold;
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes slide-in {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .new-task {
+            animation: slide-in 0.3s ease;
+        }
+
+        /* Provider Status */
+        .provider-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .provider-status {
+            background: #0f0f0f;
+            border: 1px solid #333;
+            border-radius: 6px;
+            padding: 8px;
+            text-align: center;
+            font-size: 11px;
+        }
+
+        .provider-status.active {
+            border-color: #44ff44;
+        }
+
+        .provider-status.error {
+            border-color: #ff4444;
+        }
+
+        /* Controls */
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            background: #4a9eff;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background: #3a8eef;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(74, 158, 255, 0.4);
+        }
+
+        .btn.secondary {
+            background: #333;
+        }
+
+        .btn.secondary:hover {
+            background: #444;
+        }
+
+        /* LLM Selection Controls */
+        .llm-controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 15px;
+            min-width: 250px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .llm-mode-switch {
+            display: flex;
+            background: #0f0f0f;
+            border-radius: 20px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .llm-mode-option {
+            flex: 1;
+            padding: 8px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 12px;
+            border: none;
+            background: none;
+            color: #888;
+        }
+
+        .llm-mode-option.active {
+            background: #4a9eff;
+            color: #fff;
+        }
+
+        .llm-providers {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .llm-provider {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px;
+            background: #0f0f0f;
+            border-radius: 6px;
+            font-size: 11px;
+        }
+
+        .llm-provider.priority-1 { border-left: 3px solid #44ff44; }
+        .llm-provider.priority-2 { border-left: 3px solid #88cc44; }
+        .llm-provider.priority-3 { border-left: 3px solid #ccaa44; }
+        .llm-provider.priority-4 { border-left: 3px solid #ff8844; }
+        .llm-provider.priority-5 { border-left: 3px solid #ff4444; }
+
+        .provider-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #44ff44;
+        }
+
+        .provider-status-dot.limited { background: #ff8844; }
+        .provider-status-dot.error { background: #ff4444; }
+
+        .cost-indicator {
+            font-size: 10px;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        /* Enhanced Task Monitoring */
+        .task-details {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #333;
+            font-size: 11px;
+            color: #888;
+        }
+
+        .task-progress {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 4px 0;
+        }
+
+        .task-progress-bar {
+            flex: 1;
+            height: 3px;
+            background: #333;
+            border-radius: 1px;
+            overflow: hidden;
+        }
+
+        .task-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4a9eff 0%, #44ff44 100%);
+            transition: width 0.3s ease;
+        }
+
+        .task-agent {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin: 2px 0;
+        }
+
+        .agent-avatar {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8px;
+            color: #fff;
+            font-weight: bold;
+        }
+
+        .agent-avatar.claude { background: #ff6b35; }
+        .agent-avatar.gpt4 { background: #10a37f; }
+        .agent-avatar.kimi { background: #4a9eff; }
+        .agent-avatar.deepseek { background: #8b5cf6; }
+        .agent-avatar.groq { background: #f59e0b; }
+        .agent-avatar.gemini { background: #ea4335; }
+
+        .task-timeline {
+            margin-top: 8px;
+        }
+
+        .timeline-event {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin: 2px 0;
+            font-size: 10px;
+            color: #666;
+        }
+
+        .timeline-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #4a9eff;
+        }
+
+        .real-time-stats {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            background: #1a1a2e;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 15px;
+            min-width: 200px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+            font-size: 12px;
+        }
+
+        .stat-value {
+            color: #4a9eff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚀 TRITONS Enhanced Swarm Dashboard</h1>
+        <div class="status-indicators">
+            <div class="indicator">
+                <div class="indicator-dot green"></div>
+                <span>System: <span id="system-status">Online</span></span>
+            </div>
+            <div class="indicator">
+                <div class="indicator-dot green" id="redis-indicator"></div>
+                <span>Redis: <span id="redis-status">Connected</span></span>
+            </div>
+            <div class="indicator">
+                <div class="indicator-dot green" id="api-indicator"></div>
+                <span>APIs: <span id="api-status">Available</span></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- LLM Selection Controls -->
+    <div class="llm-controls">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #4a9eff;">🧠 LLM Selection</h3>
+        
+        <div class="llm-mode-switch">
+            <button class="llm-mode-option active" onclick="setLLMMode('economy')">💰 Economy</button>
+            <button class="llm-mode-option" onclick="setLLMMode('balanced')">⚖️ Balanced</button>
+            <button class="llm-mode-option" onclick="setLLMMode('premium')">💎 Premium</button>
+        </div>
+
+        <div class="llm-providers" id="llm-providers">
+            <!-- LLM providers will be populated here -->
+        </div>
+
+        <div class="cost-indicator">
+            Est. cost: <span id="hourly-cost">$0.12/hour</span>
+        </div>
+    </div>
+
+    <!-- Real-time Stats -->
+    <div class="real-time-stats">
+        <h3 style="margin: 0 0 10px 0; font-size: 14px; color: #4a9eff;">📊 Live Stats</h3>
+        <div class="stat-row">
+            <span>Tasks Processing:</span>
+            <span class="stat-value" id="live-processing">0</span>
+        </div>
+        <div class="stat-row">
+            <span>Queue Depth:</span>
+            <span class="stat-value" id="live-queue-depth">0</span>
+        </div>
+        <div class="stat-row">
+            <span>Agents Active:</span>
+            <span class="stat-value" id="live-agents-active">0</span>
+        </div>
+        <div class="stat-row">
+            <span>Avg Response:</span>
+            <span class="stat-value" id="live-avg-response">0ms</span>
+        </div>
+        <div class="stat-row">
+            <span>Success Rate:</span>
+            <span class="stat-value" id="live-success-rate">0%</span>
+        </div>
+        <div class="stat-row">
+            <span>Current Cost:</span>
+            <span class="stat-value" id="live-current-cost">$0.00</span>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <!-- Left Panel: Task Queue -->
+        <div class="panel">
+            <h2>🚀 Quick Task Submit</h2>
+            <div class="quick-task-form">
+                <select id="task-department" class="task-input">
+                    <option value="AI_ML">🤖 AI/ML</option>
+                    <option value="INFRA">🛠️ Infrastructure</option>
+                    <option value="ARCHITECTURE">🏗️ Architecture</option>
+                    <option value="QUALITY">✅ Quality/Testing</option>
+                    <option value="SECURITY">🔒 Security</option>
+                </select>
+                <textarea id="task-prompt" class="task-input task-textarea" placeholder="Describe your task here..." rows="3" onkeydown="handleTaskKeydown(event)"></textarea>
+                <button id="submit-task-btn" class="submit-btn" onclick="submitQuickTask()">Submit Task</button>
+                <div id="task-result" class="task-result"></div>
+            </div>
+            
+            <h2>Task Queue <span id="queue-count">(0)</span></h2>
+            <div class="task-queue" id="task-queue">
+                <!-- Tasks will be populated here -->
+            </div>
+        </div>
+
+        <!-- Center Panel: Dependency Graph -->
+        <div class="panel">
+            <h2>Task Dependencies & Flow</h2>
+            <canvas id="dependency-graph"></canvas>
+        </div>
+
+        <!-- Right Panel: Metrics & Agents -->
+        <div class="panel">
+            <h2>System Metrics</h2>
+            
+            <!-- Progress -->
+            <div class="progress-section">
+                <div class="overall-progress">
+                    <div class="progress-fill" id="overall-progress" style="width: 0%">0%</div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: #888;">
+                    <span>Completed: <span id="completed-count">0</span></span>
+                    <span>In Progress: <span id="progress-count">0</span></span>
+                    <span>Queued: <span id="queued-count">0</span></span>
+                </div>
+            </div>
+
+            <!-- Metrics Grid -->
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value" id="tasks-per-hour">0</div>
+                    <div class="metric-label">Tasks/Hour</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="success-rate">0%</div>
+                    <div class="metric-label">Success Rate</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="avg-time">0m</div>
+                    <div class="metric-label">Avg Time</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value" id="total-cost">$0</div>
+                    <div class="metric-label">Total Cost</div>
+                </div>
+            </div>
+
+            <!-- Active Agents -->
+            <h2>Active Agents</h2>
+            <div class="agents-grid" id="agents-grid">
+                <!-- Agents will be populated here -->
+            </div>
+
+            <!-- Leaderboard -->
+            <h2 style="margin-top: 20px;">Agent Leaderboard</h2>
+            <div class="leaderboard" id="leaderboard">
+                <!-- Leaderboard will be populated here -->
+            </div>
+
+            <!-- Provider Status -->
+            <h2 style="margin-top: 20px;">API Providers</h2>
+            <div class="provider-grid" id="provider-grid">
+                <!-- Providers will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn secondary" onclick="toggleAutoRefresh()">
+            <span id="refresh-status">⏸</span> Auto-refresh
+        </button>
+        <button class="btn" onclick="refreshData()">🔄 Refresh Now</button>
+    </div>
+
+    <script>
+        let autoRefresh = true;
+        let refreshInterval;
+        const API_URL = 'http://localhost:8084';
+
+        // Submit quick task
+        async function submitQuickTask() {
+            const departmentSelect = document.getElementById('task-department');
+            const promptTextarea = document.getElementById('task-prompt');
+            const submitBtn = document.getElementById('submit-task-btn');
+            const resultDiv = document.getElementById('task-result');
+            
+            const department = departmentSelect.value;
+            const prompt = promptTextarea.value.trim();
+            
+            if (!prompt) {
+                showTaskResult('Please enter a task description', 'error');
+                return;
+            }
+            
+            // Disable button during submission
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Submitting...';
+            
+            try {
+                const response = await fetch('http://localhost:8080/api/tasks/submit', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        type: department,
+                        prompt: prompt
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showTaskResult(`✅ Task submitted! ID: ${result.taskId}`, 'success');
+                    promptTextarea.value = ''; // Clear the textarea
+                } else {
+                    showTaskResult(`❌ Failed to submit task: ${result.error || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                showTaskResult(`❌ Network error: ${error.message}`, 'error');
+            } finally {
+                // Re-enable button
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Submit Task';
+            }
+        }
+        
+        function showTaskResult(message, type) {
+            const resultDiv = document.getElementById('task-result');
+            resultDiv.textContent = message;
+            resultDiv.className = `task-result ${type}`;
+            resultDiv.style.display = 'block';
+            
+            // Hide after 5 seconds
+            setTimeout(() => {
+                resultDiv.style.display = 'none';
+            }, 5000);
+        }
+        
+        function handleTaskKeydown(event) {
+            // Submit with Ctrl+Enter or Cmd+Enter
+            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                event.preventDefault();
+                submitQuickTask();
+            }
+        }
+
+        // Initialize dashboard
+        async function init() {
+            await refreshData();
+            if (autoRefresh) {
+                refreshInterval = setInterval(refreshData, 3000);
+            }
+            initDependencyGraph();
+        }
+
+        // Fetch and update data
+        async function refreshData() {
+            try {
+                const response = await fetch(`${API_URL}/api/dashboard/enhanced`);
+                const data = await response.json();
+                updateDashboard(data);
+            } catch (err) {
+                console.error('Failed to fetch data:', err);
+                updateConnectionStatus(false);
+            }
+        }
+
+        // Update dashboard with new data
+        function updateDashboard(data) {
+            updateConnectionStatus(true);
+            
+            // Update task queue
+            updateTaskQueue(data.taskDeployment?.queue || []);
+            
+            // Update metrics
+            updateMetrics(data);
+            
+            // Update agents
+            updateAgents(data.agents || []);
+            
+            // Update leaderboard
+            updateLeaderboard(data.leaderboard || []);
+            
+            // Update providers
+            updateProviders(data.taskDeployment?.providers || []);
+            
+            // Update dependency graph
+            updateDependencyGraph(data.taskDeployment?.dependencies);
+        }
+
+        // Update task queue display with enhanced monitoring
+        function updateTaskQueue(tasks) {
+            const container = document.getElementById('task-queue');
+            document.getElementById('queue-count').textContent = `(${tasks.length})`;
+            
+            container.innerHTML = tasks.map(task => {
+                const progress = task.progress || 0;
+                const agent = task.assignedAgent || null;
+                const timeElapsed = task.startedAt ? Math.floor((Date.now() - new Date(task.startedAt)) / 1000) : 0;
+                
+                return `
+                    <div class="task-item ${task.priority} new-task" onclick="showTaskDetails('${task.id}')">
+                        <div class="task-header">
+                            <span class="task-id">${task.id}</span>
+                            <span class="task-priority">${task.priority}</span>
+                        </div>
+                        <div class="task-title">${task.title || 'Untitled Task'}</div>
+                        <div class="task-meta">
+                            ${task.department} • ${task.estimatedHours}h
+                            ${task.dependencies?.length ? ` • ${task.dependencies.length} deps` : ''}
+                        </div>
+                        
+                        ${task.status === 'in_progress' || task.status === 'assigned' ? `
+                            <div class="task-details">
+                                <div class="task-progress">
+                                    <span style="font-size: 10px; color: #4a9eff;">${progress}%</span>
+                                    <div class="task-progress-bar">
+                                        <div class="task-progress-fill" style="width: ${progress}%"></div>
+                                    </div>
+                                    <span style="font-size: 10px; color: #888;">${timeElapsed}s</span>
+                                </div>
+                                
+                                ${agent ? `
+                                    <div class="task-agent">
+                                        <div class="agent-avatar ${agent.llm}">${agent.llm.charAt(0).toUpperCase()}</div>
+                                        <span>${agent.name || agent.id}</span>
+                                        <span style="color: #888;">• Load: ${Math.round(agent.load * 100)}%</span>
+                                    </div>
+                                ` : ''}
+                                
+                                <div class="task-timeline">
+                                    ${(task.timeline || []).slice(-3).map(event => `
+                                        <div class="timeline-event">
+                                            <div class="timeline-dot"></div>
+                                            <span>${event.action}</span>
+                                            <span style="margin-left: auto; color: #666;">${formatTime(event.timestamp)}</span>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        ${task.status === 'completed' ? `
+                            <div class="task-details">
+                                <div style="color: #44ff44; font-size: 11px;">✅ Completed in ${task.duration || 0}s</div>
+                                <div style="color: #888; font-size: 10px;">Cost: $${(task.cost || 0).toFixed(4)} • Quality: ${Math.round((task.qualityScore || 0) * 100)}%</div>
+                            </div>
+                        ` : ''}
+                        
+                        ${task.status === 'failed' ? `
+                            <div class="task-details">
+                                <div style="color: #ff4444; font-size: 11px;">❌ Failed: ${task.error || 'Unknown error'}</div>
+                                <div style="color: #888; font-size: 10px;">Retry attempt: ${task.retryCount || 0}/3</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update metrics display
+        function updateMetrics(data) {
+            const system = data.system || {};
+            document.getElementById('tasks-per-hour').textContent = system.tasksPerHour || '0';
+            document.getElementById('success-rate').textContent = system.successRate || '0%';
+            document.getElementById('avg-time').textContent = system.avgTaskTime || '0m';
+            document.getElementById('total-cost').textContent = `$${system.totalCost || '0'}`;
+            
+            // Update progress
+            const stats = data.taskDeployment?.statistics || {};
+            const total = stats.total || 0;
+            const completed = stats.completed || 0;
+            const progress = total > 0 ? (completed / total * 100).toFixed(0) : 0;
+            
+            const progressBar = document.getElementById('overall-progress');
+            progressBar.style.width = `${progress}%`;
+            progressBar.textContent = `${progress}%`;
+            
+            document.getElementById('completed-count').textContent = completed;
+            document.getElementById('progress-count').textContent = stats.in_progress || 0;
+            document.getElementById('queued-count').textContent = stats.ready || 0;
+        }
+
+        // Update agents display
+        function updateAgents(agents) {
+            const container = document.getElementById('agents-grid');
+            container.innerHTML = agents.map(agent => {
+                const loadPercent = (agent.load * 100).toFixed(0);
+                const statusClass = agent.status === 'active' ? 'active' : 
+                                   agent.load > 0.8 ? 'busy' : '';
+                
+                return `
+                    <div class="agent-card ${statusClass}">
+                        <div class="agent-name">${agent.id}</div>
+                        <div class="agent-type">Backend</div>
+                        <div class="agent-load-bar">
+                            <div class="agent-load-fill" style="width: ${loadPercent}%"></div>
+                        </div>
+                        <div class="agent-stats">
+                            <span>Tasks: ${agent.tasksCompleted || 0}</span>
+                            <span>Load: ${loadPercent}%</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Update leaderboard
+        function updateLeaderboard(leaderboard) {
+            const container = document.getElementById('leaderboard');
+            container.innerHTML = leaderboard.slice(0, 5).map((agent, index) => `
+                <div class="leaderboard-item">
+                    <div>
+                        <span class="leaderboard-rank">#${index + 1}</span>
+                        ${agent.agentId}
+                    </div>
+                    <span class="leaderboard-score">${agent.score}</span>
+                </div>
+            `).join('');
+        }
+
+        // Update provider status
+        function updateProviders(providers) {
+            const container = document.getElementById('provider-grid');
+            container.innerHTML = providers.map(provider => `
+                <div class="provider-status active">
+                    ${provider}
+                </div>
+            `).join('');
+        }
+
+        // Initialize dependency graph
+        function initDependencyGraph() {
+            const canvas = document.getElementById('dependency-graph');
+            const ctx = canvas.getContext('2d');
+            
+            // Set canvas size
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            // Draw placeholder
+            ctx.fillStyle = '#333';
+            ctx.font = '14px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Task dependency graph will appear here', canvas.width/2, canvas.height/2);
+        }
+
+        // Update dependency graph
+        function updateDependencyGraph(graphData) {
+            if (!graphData) return;
+            
+            const canvas = document.getElementById('dependency-graph');
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Simple visualization - replace with D3.js or similar for production
+            const nodes = graphData.nodes || [];
+            const edges = graphData.edges || [];
+            
+            // Draw nodes
+            nodes.forEach((node, i) => {
+                const x = 50 + (i % 5) * 150;
+                const y = 50 + Math.floor(i / 5) * 100;
+                
+                ctx.fillStyle = node.status === 'completed' ? '#44ff44' :
+                               node.status === 'in_progress' ? '#ff8844' :
+                               node.status === 'ready' ? '#4a9eff' : '#666';
+                ctx.beginPath();
+                ctx.arc(x, y, 20, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(node.id.slice(0, 8), x, y + 4);
+            });
+        }
+
+        // Update connection status
+        function updateConnectionStatus(connected) {
+            const redisIndicator = document.getElementById('redis-indicator');
+            const apiIndicator = document.getElementById('api-indicator');
+            
+            if (connected) {
+                redisIndicator.className = 'indicator-dot green';
+                apiIndicator.className = 'indicator-dot green';
+                document.getElementById('redis-status').textContent = 'Connected';
+                document.getElementById('api-status').textContent = 'Available';
+            } else {
+                redisIndicator.className = 'indicator-dot red';
+                apiIndicator.className = 'indicator-dot yellow';
+                document.getElementById('redis-status').textContent = 'Disconnected';
+                document.getElementById('api-status').textContent = 'Limited';
+            }
+        }
+
+        // Toggle auto-refresh
+        function toggleAutoRefresh() {
+            autoRefresh = !autoRefresh;
+            document.getElementById('refresh-status').textContent = autoRefresh ? '⏸' : '▶';
+            
+            if (autoRefresh) {
+                refreshInterval = setInterval(refreshData, 3000);
+            } else {
+                clearInterval(refreshInterval);
+            }
+        }
+
+        // LLM Mode Management
+        let currentLLMMode = 'economy';
+        const llmModes = {
+            economy: {
+                providers: [
+                    { name: 'Kimi 2', cost: 0.0001, priority: 1, status: 'active' },
+                    { name: 'DeepSeek', cost: 0.0002, priority: 2, status: 'active' },
+                    { name: 'Groq', cost: 0.0003, priority: 3, status: 'active' },
+                    { name: 'Gemini', cost: 0.0005, priority: 4, status: 'active' }
+                ],
+                hourlyCost: 0.12
+            },
+            balanced: {
+                providers: [
+                    { name: 'Kimi 2', cost: 0.0001, priority: 1, status: 'active' },
+                    { name: 'DeepSeek', cost: 0.0002, priority: 2, status: 'active' },
+                    { name: 'Claude', cost: 0.015, priority: 3, status: 'limited' },
+                    { name: 'GPT-4', cost: 0.030, priority: 4, status: 'limited' }
+                ],
+                hourlyCost: 2.50
+            },
+            premium: {
+                providers: [
+                    { name: 'Claude', cost: 0.015, priority: 1, status: 'active' },
+                    { name: 'GPT-4', cost: 0.030, priority: 2, status: 'active' },
+                    { name: 'Kimi 2', cost: 0.0001, priority: 3, status: 'active' },
+                    { name: 'Gemini', cost: 0.0005, priority: 4, status: 'active' }
+                ],
+                hourlyCost: 15.80
+            }
+        };
+
+        function setLLMMode(mode) {
+            currentLLMMode = mode;
+            
+            // Update UI
+            document.querySelectorAll('.llm-mode-option').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update providers display
+            updateLLMProviders();
+            
+            // Send mode change to TRITONS
+            updateTritonsLLMMode(mode);
+        }
+
+        function updateLLMProviders() {
+            const container = document.getElementById('llm-providers');
+            const mode = llmModes[currentLLMMode];
+            
+            container.innerHTML = mode.providers.map((provider, index) => `
+                <div class="llm-provider priority-${provider.priority}">
+                    <div class="provider-status-dot ${provider.status}"></div>
+                    <div>
+                        <div style="font-weight: bold;">${provider.name}</div>
+                        <div style="font-size: 9px; color: #666;">$${provider.cost}/1k • #${provider.priority}</div>
+                    </div>
+                </div>
+            `).join('');
+            
+            document.getElementById('hourly-cost').textContent = `$${mode.hourlyCost}/hour`;
+        }
+
+        async function updateTritonsLLMMode(mode) {
+            try {
+                await fetch(`${API_URL}/api/llm/mode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode, timestamp: Date.now() })
+                });
+                console.log(`LLM mode updated to: ${mode}`);
+            } catch (err) {
+                console.error('Failed to update LLM mode:', err);
+            }
+        }
+
+        // Enhanced data refresh with live stats
+        async function refreshData() {
+            try {
+                const response = await fetch(`${API_URL}/api/dashboard/enhanced`);
+                const data = await response.json();
+                updateDashboard(data);
+                updateLiveStats(data);
+            } catch (err) {
+                console.error('Failed to fetch data:', err);
+                updateConnectionStatus(false);
+            }
+        }
+
+        function updateLiveStats(data) {
+            const stats = data.liveStats || {};
+            
+            document.getElementById('live-processing').textContent = stats.tasksProcessing || 0;
+            document.getElementById('live-queue-depth').textContent = stats.queueDepth || 0;
+            document.getElementById('live-agents-active').textContent = stats.agentsActive || 0;
+            document.getElementById('live-avg-response').textContent = `${stats.avgResponseTime || 0}ms`;
+            document.getElementById('live-success-rate').textContent = `${(stats.successRate || 0).toFixed(1)}%`;
+            document.getElementById('live-current-cost').textContent = `$${(stats.currentCost || 0).toFixed(4)}`;
+        }
+
+        function formatTime(timestamp) {
+            const now = Date.now();
+            const diff = now - new Date(timestamp);
+            
+            if (diff < 60000) return `${Math.floor(diff / 1000)}s ago`;
+            if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
+            return `${Math.floor(diff / 3600000)}h ago`;
+        }
+
+        function showTaskDetails(taskId) {
+            // Enhanced task detail modal could be implemented here
+            console.log('Show details for task:', taskId);
+        }
+
+        // Initialize dashboard
+        updateLLMProviders();
+        init();
+    </script>
+</body>
+</html>
