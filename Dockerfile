@@ -1,21 +1,9 @@
 FROM node:20-alpine
 
-# Install dependencies
+# Install only essential dependencies
 RUN apk add --no-cache \
-    git \
     curl \
-    bash \
-    python3 \
-    py3-pip \
-    make \
-    g++ \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont
+    bash
 
 # Set up working directory
 WORKDIR /app
@@ -45,4 +33,4 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD node -e "process.exit(0)" || exit 1
 
 # Start the application
-CMD ["node", "ultra-lightweight-docker-ai-swarm.js"]
+CMD ["node", "core/enhanced-swarm-orchestrator.js"]
