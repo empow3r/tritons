@@ -33,4 +33,4 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
   CMD node -e "process.exit(0)" || exit 1
 
 # Start the application
-CMD ["node", "core/enhanced-swarm-orchestrator.js"]
+CMD ["node", "core/multi-llm-hierarchical-system.js"]
